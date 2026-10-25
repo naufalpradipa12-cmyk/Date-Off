@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jadwal Libur Bersama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: papan kalender bulanan, satu kolom di HP; panel detail tanggal menempel di bawah grid. */
+:root{
+  --bg:#eef1f4;
+  --surface:#ffffff;
+  --ink:#16222d;
+  --muted:#5d6b78;
+  --line:#d5dce3;
+  --accent:#0b7a63;
+  --accent-ink:#ffffff;
+  --warn:#b4540a;
+  --full:#e3e8ed;
+  --chip-l:86%;
+  --chip-fg:#16222d;
+  --focus:#0b7a63;
+  --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#10171d;--surface:#18222b;--ink:#e6edf3;--muted:#92a2b0;--line:#2a3743;
+    --accent:#3fc4a3;--accent-ink:#06231c;--warn:#f0a25a;--full:#212d37;
+    --chip-l:30%;--chip-fg:#e6edf3;--focus:#3fc4a3;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10171d;--surface:#18222b;--ink:#e6edf3;--muted:#92a2b0;--line:#2a3743;
+  --accent:#3fc4a3;--accent-ink:#06231c;--warn:#f0a25a;--full:#212d37;
+  --chip-l:30%;--chip-fg:#e6edf3;--focus:#3fc4a3;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-body);
+  padding-block:24px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+header{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font:800 clamp(28px,5vw,42px)/1.05 var(--font-display);letter-spacing:-.02em;text-wrap:balance}
+.sub{margin:6px 0 0;color:var(--muted);max-width:46ch}
+.who{display:flex;flex-direction:column;gap:4px;min-width:min(100%,240px)}
+.who label{font:500 12px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.who input{height:44px;padding:0 12px;border:1.5px solid var(--line);border-radius:6px;background:var(--surface)}
+.who input:focus{border-color:var(--accent)}
+
+.banner{padding:10px 14px;border:1.5px dashed var(--warn);border-radius:6px;color:var(--warn);font-size:14px}
+.banner[hidden]{display:none}
+
+.board{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.bar h2{margin:0;font:800 22px/1 var(--font-display);letter-spacing:-.01em;text-align:center;flex:1}
+.nav{width:44px;height:44px;border:1.5px solid var(--line);border-radius:6px;background:transparent;cursor:pointer;font-size:18px}
+.nav:hover{border-color:var(--accent);color:var(--accent)}
+.quota{display:flex;flex-wrap:wrap;gap:8px 20px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)}
+.quota b{color:var(--ink);font-family:var(--font-mono);font-weight:500}
+
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.dow{padding:8px 4px;text-align:center;font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.dow.wk{color:var(--warn)}
+.day{position:relative;min-height:92px;padding:6px 4px 6px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:var(--surface);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;min-width:0}
+.day:nth-child(7n){border-right:0}
+.day:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.day .n{font:500 13px var(--font-mono);display:flex;justify-content:space-between;align-items:center;padding:0 2px}
+.day .cap{font-size:10px;color:var(--muted)}
+.day.out{visibility:hidden;pointer-events:none}
+.day.past{color:var(--muted);cursor:default}
+.day.past .n{opacity:.55}
+.day.full{background:repeating-linear-gradient(135deg,var(--full) 0 6px,var(--surface) 6px 12px)}
+.day.today .n span{background:var(--ink);color:var(--surface);border-radius:4px;padding:0 5px}
+.day.sel{box-shadow:inset 0 0 0 3px var(--accent)}
+.day.mine .n::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.chips{display:flex;flex-direction:column;gap:3px;min-width:0}
+.chip{display:flex;align-items:center;gap:5px;min-width:0;border-radius:4px;padding:2px 5px;font-size:12px;line-height:1.3;
+  background:hsl(var(--h) 60% var(--chip-l));color:var(--chip-fg)}
+.chip i{font-style:normal;font-weight:600;flex:none}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.panel h3{margin:0 0 4px;font:800 20px/1.2 var(--font-display)}
+.panel .hint{margin:0;color:var(--muted);font-size:14px}
+.people{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.people li{display:flex;align-items:center;gap:10px;min-width:0}
+.people .chip{flex:1;font-size:14px;padding:6px 10px}
+.link{border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:8px;min-height:36px}
+.link:hover{color:var(--warn)}
+.act{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.primary{min-height:48px;padding:0 20px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;max-width:100%}
+.primary:hover:not(:disabled){filter:brightness(1.08)}
+.primary:disabled{background:var(--full);color:var(--muted);cursor:not-allowed}
+.primary.ghost{background:transparent;color:var(--warn);box-shadow:inset 0 0 0 1.5px var(--warn)}
+.note{margin:0;font-size:13px;color:var(--muted)}
+
+.team{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+.team h3{margin:0 0 10px;font:600 12px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.team ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.team .chip{padding:4px 10px;font-size:13px}
+.team em{font-style:normal;font-family:var(--font-mono);opacity:.8}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));max-width:min(92vw,420px);
+  background:var(--ink);color:var(--surface);padding:12px 16px;border-radius:6px;font-size:14px;box-shadow:0 6px 24px #0004;z-index:5}
+.toast[hidden]{display:none}
+.toast.err{background:var(--warn);color:#fff}
+
+@media (max-width:640px){
+  .day{min-height:74px;padding:4px 2px}
+  .chip{padding:2px;justify-content:center}
+  .chip span{display:none}
+  .chips{flex-direction:row;flex-wrap:wrap;gap:2px}
+  .chip{width:20px;height:20px;border-radius:50%}
+  .day .cap{display:none}
+  .panel{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Jadwal Libur Bersama</h1>
+      <p class="sub">Pilih tanggal libur kamu bulan ini. Kalau tanggalnya sudah penuh, pilih tanggal lain supaya tidak bentrok dengan teman.</p>
+    </div>
+    <div class="who">
+      <label for="nama">Nama kamu</label>
+      <input id="nama" type="text" maxlength="30" autocomplete="name" placeholder="contoh: Naufal">
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden>Mode contoh: data hanya tersimpan di browser ini. Isi <code>API_URL</code> di file ini dengan alamat Apps Script supaya terhubung ke Google Sheet.</div>
+
+  <section class="board" aria-label="Kalender libur">
+    <div class="bar">
+      <button class="nav" id="prev" aria-label="Bulan sebelumnya">&larr;</button>
+      <h2 id="title" aria-live="polite"></h2>
+      <button class="nav" id="next" aria-label="Bulan berikutnya">&rarr;</button>
+    </div>
+    <div class="quota" id="quota"></div>
+    <div class="grid" id="grid" role="grid"></div>
+  </section>
+
+  <section class="panel" id="panel" aria-live="polite"></section>
+
+  <section class="team">
+    <h3>Libur bulan ini per orang</h3>
+    <ul id="team"></ul>
+  </section>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+/* ====== PENGATURAN ======
+   Tempel alamat Web app Apps Script (berakhiran /exec) di sini. */
+const API_URL = "";
+/* ======================== */
+
+const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const HARI = ["Sen","Sel","Rab","Kam","Jum","Sab","Min"];
+const HARI_PANJANG = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+const DEMO = !API_URL;
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const iso = (y, m, d) => y + "-" + pad(m + 1) + "-" + pad(d);
+const todayISO = () => { const t = new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); };
+
+function load(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+const now = new Date();
+const state = {
+  year: now.getFullYear(), month: now.getMonth(),
+  data: [], cfg: { perDay: 2, perMonth: 4 },
+  sel: todayISO(), busy: false,
+  name: load("libur_nama", ""), tokens: load("libur_tokens", {})
+};
+
+/* ---------- lapisan data ---------- */
+function demoSeed() {
+  const y = now.getFullYear(), m = now.getMonth();
+  return [
+    { id: "d1", tanggal: iso(y, m, 27), nama: "Rina" }, { id: "d2", tanggal: iso(y, m, 27), nama: "Budi" },
+    { id: "d3", tanggal: iso(y, m, 28), nama: "Sari" }, { id: "d4", tanggal: iso(y, m, 30), nama: "Budi" }
+  ];
+}
+async function api(payload) {
+  if (DEMO) return demoApi(payload);
+  const res = payload
+    ? await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
+    : await fetch(API_URL);
+  return res.json();
+}
+function demoApi(p) {
+  let rows = load("libur_demo", null) || demoSeed();
+  const cfg = state.cfg;
+  let out;
+  if (!p) out = { ok: true };
+  else if (p.action === "add") {
+    const same = rows.filter(r => r.tanggal === p.tanggal);
+    const key = p.nama.toLowerCase();
+    if (same.some(r => r.nama.toLowerCase() === key)) out = { ok: false, error: "Kamu sudah libur di tanggal itu." };
+    else if (same.length >= cfg.perDay) out = { ok: false, error: "Tanggal itu sudah penuh (" + cfg.perDay + " orang). Pilih tanggal lain." };
+    else if (rows.filter(r => r.nama.toLowerCase() === key && r.tanggal.slice(0, 7) === p.tanggal.slice(0, 7)).length >= cfg.perMonth)
+      out = { ok: false, error: "Jatah libur bulan ini sudah habis (" + cfg.perMonth + " hari)." };
+    else { const id = Math.random().toString(36).slice(2, 10); rows.push({ id, tanggal: p.tanggal, nama: p.nama, token: p.token }); out = { ok: true, id }; }
+  } else if (p.action === "remove") {
+    const r = rows.find(x => x.id === p.id);
+    if (r && r.token && r.token !== p.token) out = { ok: false, error: "Hanya orang yang memilih tanggal ini yang bisa membatalkannya." };
+    else { rows = rows.filter(x => x.id !== p.id); out = { ok: true }; }
+  }
+  save("libur_demo", rows);
+  return { ...out, config: cfg, data: rows.map(r => ({ id: r.id, tanggal: r.tanggal, nama: r.nama })) };
+}
+
+/* ---------- pembantu ---------- */
+function hue(name) { let h = 0; const s = name.toLowerCase(); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function chip(nama) { return '<span class="chip" style="--h:' + hue(nama) + '" title="' + esc(nama) + '"><i>' + esc(nama.charAt(0).toUpperCase()) + '</i><span>' + esc(nama) + '</span></span>'; }
+function me() { return state.name.trim().toLowerCase(); }
+function onDay(d) { return state.data.filter(r => r.tanggal === d); }
+function myCountThisMonth() {
+  const prefix = state.year + "-" + pad(state.month + 1);
+  return state.data.filter(r => r.nama.toLowerCase() === me() && r.tanggal.slice(0, 7) === prefix).length;
+}
+let toastTimer;
+function toast(msg, isErr) {
+  const t = $("toast"); t.textContent = msg; t.className = "toast" + (isErr ? " err" : ""); t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3600);
+}
+
+/* ---------- tampilan ---------- */
+function renderGrid() {
+  const { year, month } = state;
+  $("title").textContent = BULAN[month] + " " + year;
+  const first = new Date(year, month, 1);
+  const lead = (first.getDay() + 6) % 7; // minggu dimulai Senin
+  const days = new Date(year, month + 1, 0).getDate();
+  const today = todayISO();
+  let html = HARI.map((h, i) => '<div class="dow' + (i > 4 ? " wk" : "") + '" role="columnheader">' + h + "</div>").join("");
+  for (let i = 0; i < lead; i++) html += '<div class="day out" aria-hidden="true"></div>';
+  for (let d = 1; d <= days; d++) {
+    const key = iso(year, month, d), list = onDay(key);
+    const past = key < today, full = list.length >= state.cfg.perDay;
+    const mine = list.some(r => r.nama.toLowerCase() === me() && me());
+    const cls = ["day", past && "past", full && "full", key === today && "today", key === state.sel && "sel", mine && "mine"].filter(Boolean).join(" ");
+    const label = d + " " + BULAN[month] + ", " + list.length + " dari " + state.cfg.perDay + " orang libur" + (full ? ", penuh" : "");
+    html += '<button type="button" class="' + cls + '" data-d="' + key + '" aria-label="' + label + '"' + (key === state.sel ? ' aria-pressed="true"' : "") + ">" +
+      '<span class="n"><span>' + d + '</span><span class="cap">' + list.length + "/" + state.cfg.perDay + "</span></span>" +
+      '<span class="chips">' + list.map(r => chip(r.nama)).join("") + "</span></button>";
+  }
+  $("grid").innerHTML = html;
+}
+
+function renderQuota() {
+  const nm = state.name.trim();
+  $("quota").innerHTML =
+    "<span>Maksimal <b>" + state.cfg.perDay + "</b> orang libur per hari</span>" +
+    "<span>Jatah libur per orang <b>" + state.cfg.perMonth + "</b> hari per bulan</span>" +
+    (nm ? "<span>Libur " + esc(nm) + " bulan ini <b>" + myCountThisMonth() + " / " + state.cfg.perMonth + "</b></span>" : "<span>Isi nama kamu di atas untuk mulai memilih.</span>");
+}
+
+function renderPanel() {
+  const key = state.sel, [y, m, d] = key.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const list = onDay(key), past = key < todayISO(), full = list.length >= state.cfg.perDay;
+  const mineRow = me() ? list.find(r => r.nama.toLowerCase() === me()) : null;
+  const left = state.cfg.perDay - list.length;
+
+  let people = list.length
+    ? '<ul class="people">' + list.map(r => {
+        const own = state.tokens[r.id];
+        return "<li>" + chip(r.nama) + (own && !past ? '<button type="button" class="link" data-del="' + r.id + '">Batalkan</button>' : "") + "</li>";
+      }).join("") + "</ul>"
+    : '<p class="hint" style="margin-top:12px">Belum ada yang libur. Tanggal ini masih kosong.</p>';
+
+  let action, note = "";
+  if (past) { action = '<button class="primary" disabled>Tanggal sudah lewat</button>'; }
+  else if (mineRow) {
+    action = state.tokens[mineRow.id]
+      ? '<button type="button" class="primary ghost" data-del="' + mineRow.id + '">Batalkan libur saya</button>'
+      : '<button class="primary" disabled>Kamu sudah libur di sini</button>';
+  } else if (!state.name.trim()) { action = '<button class="primary" disabled>Isi nama dulu</button>'; }
+  else if (full) { action = '<button class="primary" disabled>Tanggal penuh</button>'; note = "Pilih tanggal lain yang belum penuh."; }
+  else if (myCountThisMonth() >= state.cfg.perMonth) { action = '<button class="primary" disabled>Jatah bulan ini habis</button>'; }
+  else { action = '<button type="button" class="primary" id="take">Ambil libur tanggal ' + d + " " + BULAN[m - 1] + "</button>"; note = "Sisa slot di tanggal ini: " + left + " orang."; }
+
+  $("panel").innerHTML =
+    "<div><h3>" + HARI_PANJANG[dt.getDay()] + ", " + d + " " + BULAN[m - 1] + " " + y + "</h3>" +
+    '<p class="hint">' + list.length + " dari " + state.cfg.perDay + " orang libur</p>" + people + "</div>" +
+    '<div class="act">' + action + (note ? '<p class="note">' + note + "</p>" : "") + "</div>";
+}
+
+function renderTeam() {
+  const prefix = state.year + "-" + pad(state.month + 1);
+  const counts = {};
+  state.data.filter(r => r.tanggal.slice(0, 7) === prefix).forEach(r => { const k = r.nama.toLowerCase(); counts[k] = counts[k] || { nama: r.nama, n: 0 }; counts[k].n++; });
+  const items = Object.values(counts).sort((a, b) => b.n - a.n || a.nama.localeCompare(b.nama));
+  $("team").innerHTML = items.length
+    ? items.map(x => "<li>" + chip(x.nama).replace("</span></span>", " <em>" + x.n + "x</em></span></span>") + "</li>").join("")
+    : '<li class="hint" style="color:var(--muted)">Belum ada yang memilih libur di bulan ini.</li>';
+}
+
+function render() { renderGrid(); renderQuota(); renderPanel(); renderTeam(); }
+
+/* ---------- aksi ---------- */
+function apply(res) {
+  if (res && res.config) state.cfg = res.config;
+  if (res && res.data) state.data = res.data;
+}
+async function run(payload, okMsg) {
+  if (state.busy) return;
+  state.busy = true; document.body.style.cursor = "progress";
+  try {
+    const res = await api(payload);
+    apply(res);
+    if (!res.ok) toast(res.error || "Gagal menyimpan.", true);
+    else { if (okMsg) toast(okMsg); }
+    return res;
+  } catch (e) {
+    toast("Tidak bisa terhubung ke Google Sheet. Cek koneksi atau API_URL.", true);
+  } finally { state.busy = false; document.body.style.cursor = ""; render(); }
+}
+
+async function take() {
+  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const res = await run({ action: "add", tanggal: state.sel, nama: state.name.trim(), token }, "Libur tersimpan.");
+  if (res && res.ok && res.id) { state.tokens[res.id] = token; save("libur_tokens", state.tokens); render(); }
+}
+async function del(id) {
+  const res = await run({ action: "remove", id, token: state.tokens[id] }, "Libur dibatalkan.");
+  if (res && res.ok) { delete state.tokens[id]; save("libur_tokens", state.tokens); }
+}
+function shift(n) {
+  const d = new Date(state.year, state.month + n, 1);
+  state.year = d.getFullYear(); state.month = d.getMonth();
+  const t = new Date();
+  state.sel = (state.year === t.getFullYear() && state.month === t.getMonth()) ? todayISO() : iso(state.year, state.month, 1);
+  render();
+}
+
+$("grid").addEventListener("click", e => { const b = e.target.closest("[data-d]"); if (b) { state.sel = b.dataset.d; render(); } });
+$("panel").addEventListener("click", e => {
+  if (e.target.closest("#take")) take();
+  const del_ = e.target.closest("[data-del]"); if (del_) del(del_.dataset.del);
+});
+$("prev").addEventListener("click", () => shift(-1));
+$("next").addEventListener("click", () => shift(1));
+$("nama").addEventListener("input", e => { state.name = e.target.value; save("libur_nama", state.name); renderGrid(); renderQuota(); renderPanel(); });
+
+/* ---------- mulai ---------- */
+$("nama").value = state.name;
+$("banner").hidden = !DEMO;
+render();
+api(null).then(res => { apply(res); render(); }).catch(() => toast("Tidak bisa memuat data dari Google Sheet.", true));
+</script>
+</body>
+</html>
