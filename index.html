@@ -18,6 +18,7 @@
   --accent:#0b7a63;
   --accent-ink:#ffffff;
   --warn:#b4540a;
+  --hol:#b3453c;
   --full:#e3e8ed;
   --chip-l:86%;
   --chip-fg:#16222d;
@@ -35,8 +36,8 @@
 }
 :root[data-theme="dark"]{
   --bg:#10171d;--surface:#18222b;--ink:#e6edf3;--muted:#92a2b0;--line:#2a3743;
-  --accent:#3fc4a3;--accent-ink:#06231c;--warn:#f0a25a;--full:#212d37;
-  --chip-l:30%;--chip-fg:#e6edf3;--focus:#3fc4a3;color-scheme:dark;
+  --accent:#3fc4a3;--accent-ink:#06231c;--warn:#f0a25a;--full:#212d37;--hol:#e0705f;
+  --chip-l:30%;--chip-fg:#e6edf3;--focus:#3fc4a3;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -78,6 +79,8 @@ h1{margin:0;font:800 clamp(28px,5vw,42px)/1.05 var(--font-display);letter-spacin
 .day.past{color:var(--muted);cursor:default}
 .day.past .n{opacity:.55}
 .day.full{background:repeating-linear-gradient(135deg,var(--full) 0 6px,var(--surface) 6px 12px)}
+.day.hol{background:color-mix(in srgb,var(--hol) 7%,var(--surface))}
+.day.hol .n span:first-child{color:var(--hol);font-weight:600}
 .day.today .n span{background:var(--ink);color:var(--surface);border-radius:4px;padding:0 5px}
 .day.sel{box-shadow:inset 0 0 0 3px var(--accent)}
 .day.mine .n::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
@@ -86,6 +89,7 @@ h1{margin:0;font:800 clamp(28px,5vw,42px)/1.05 var(--font-display);letter-spacin
   background:hsl(var(--h) 60% var(--chip-l));color:var(--chip-fg)}
 .chip i{font-style:normal;font-weight:600;flex:none}
 .chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.hol{background:var(--hol);color:#fff}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
 .panel h3{margin:0 0 4px;font:800 20px/1.2 var(--font-display)}
@@ -168,6 +172,33 @@ const API_URL = "";
 const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const HARI = ["Sen","Sel","Rab","Kam","Jum","Sab","Min"];
 const HARI_PANJANG = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+const LIBUR = {
+  "2026-01-01": "Tahun Baru Masehi",
+  "2026-01-16": "Isra Mikraj Nabi Muhammad SAW",
+  "2026-02-16": "Cuti Bersama Tahun Baru Imlek",
+  "2026-02-17": "Tahun Baru Imlek 2577 Kongzili",
+  "2026-03-18": "Cuti Bersama Hari Raya Nyepi",
+  "2026-03-19": "Hari Raya Nyepi Tahun Baru Saka 1948",
+  "2026-03-20": "Cuti Bersama Idul Fitri 1447 H",
+  "2026-03-21": "Hari Raya Idul Fitri 1447 H",
+  "2026-03-22": "Hari Raya Idul Fitri 1447 H",
+  "2026-03-23": "Cuti Bersama Idul Fitri 1447 H",
+  "2026-03-24": "Cuti Bersama Idul Fitri 1447 H",
+  "2026-04-03": "Wafat Yesus Kristus (Jumat Agung)",
+  "2026-04-05": "Kebangkitan Yesus Kristus (Paskah)",
+  "2026-05-01": "Hari Buruh Internasional",
+  "2026-05-14": "Kenaikan Yesus Kristus",
+  "2026-05-15": "Cuti Bersama Kenaikan Yesus Kristus",
+  "2026-05-27": "Hari Raya Idul Adha 1447 H",
+  "2026-05-28": "Cuti Bersama Idul Adha 1447 H",
+  "2026-05-31": "Hari Raya Waisak 2570 BE",
+  "2026-06-01": "Hari Lahir Pancasila",
+  "2026-06-16": "Tahun Baru Islam 1 Muharam 1448 H",
+  "2026-08-17": "Hari Kemerdekaan Republik Indonesia",
+  "2026-08-25": "Maulid Nabi Muhammad SAW",
+  "2026-12-24": "Cuti Bersama Kelahiran Yesus Kristus",
+  "2026-12-25": "Hari Raya Natal"
+};
 const DEMO = !API_URL;
 
 const $ = id => document.getElementById(id);
@@ -250,14 +281,14 @@ function renderGrid() {
   let html = HARI.map((h, i) => '<div class="dow' + (i > 4 ? " wk" : "") + '" role="columnheader">' + h + "</div>").join("");
   for (let i = 0; i < lead; i++) html += '<div class="day out" aria-hidden="true"></div>';
   for (let d = 1; d <= days; d++) {
-    const key = iso(year, month, d), list = onDay(key);
+    const key = iso(year, month, d), list = onDay(key), hol = LIBUR[key];
     const past = key < today, full = list.length >= state.cfg.perDay;
     const mine = list.some(r => r.nama.toLowerCase() === me() && me());
-    const cls = ["day", past && "past", full && "full", key === today && "today", key === state.sel && "sel", mine && "mine"].filter(Boolean).join(" ");
-    const label = d + " " + BULAN[month] + ", " + list.length + " dari " + state.cfg.perDay + " orang libur" + (full ? ", penuh" : "");
-    html += '<button type="button" class="' + cls + '" data-d="' + key + '" aria-label="' + label + '"' + (key === state.sel ? ' aria-pressed="true"' : "") + ">" +
-      '<span class="n"><span>' + d + '</span><span class="cap">' + list.length + "/" + state.cfg.perDay + "</span></span>" +
-      '<span class="chips">' + list.map(r => chip(r.nama)).join("") + "</span></button>";
+    const cls = ["day", past && "past", full && "full", hol && "hol", key === today && "today", key === state.sel && "sel", mine && "mine"].filter(Boolean).join(" ");
+    const label = d + " " + BULAN[month] + ", " + list.length + " dari " + state.cfg.perDay + " orang libur" + (full ? ", penuh" : "") + (hol ? ", libur: " + hol : "");
+    html += '<button type="button" class="' + cls + '" data-d="' + key + '" aria-label="' + esc(label) + '"' + (key === state.sel ? ' aria-pressed="true"' : "") + ">" +
+      '<span class="n"><span>' + d + '</span><span class="cap">' + (hol ? "Libur" : list.length + "/" + state.cfg.perDay) + "</span></span>" +
+      '<span class="chips">' + (hol ? '<span class="chip hol" title="' + esc(hol) + '"><i>★</i><span>' + esc(hol) + "</span></span>" : "") + list.map(r => chip(r.nama)).join("") + "</span></button>";
   }
   $("grid").innerHTML = html;
 }
@@ -285,7 +316,9 @@ function renderPanel() {
     : '<p class="hint" style="margin-top:12px">Belum ada yang libur. Tanggal ini masih kosong.</p>';
 
   let action, note = "";
-  if (past) { action = '<button class="primary" disabled>Tanggal sudah lewat</button>'; }
+  const hol = LIBUR[key];
+  if (hol) { action = '<button class="primary" disabled>Hari libur nasional</button>'; note = esc(hol) + ". Tanggal ini sudah libur, tidak perlu diambil sebagai libur pribadi."; }
+  else if (past) { action = '<button class="primary" disabled>Tanggal sudah lewat</button>'; }
   else if (mineRow) {
     action = state.tokens[mineRow.id]
       ? '<button type="button" class="primary ghost" data-del="' + mineRow.id + '">Batalkan libur saya</button>'
@@ -297,7 +330,8 @@ function renderPanel() {
 
   $("panel").innerHTML =
     "<div><h3>" + HARI_PANJANG[dt.getDay()] + ", " + d + " " + BULAN[m - 1] + " " + y + "</h3>" +
-    '<p class="hint">' + list.length + " dari " + state.cfg.perDay + " orang libur</p>" + people + "</div>" +
+    '<p class="hint">' + list.length + " dari " + state.cfg.perDay + " orang libur</p>" +
+    (hol ? '<p class="hint" style="color:var(--hol);font-weight:600">★ ' + esc(hol) + "</p>" : "") + people + "</div>" +
     '<div class="act">' + action + (note ? '<p class="note">' + note + "</p>" : "") + "</div>";
 }
 
